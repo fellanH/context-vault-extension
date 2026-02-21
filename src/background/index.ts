@@ -10,6 +10,7 @@ import {
   getVaultStatus,
   clearSettingsCache,
   probeServer,
+  APIError,
 } from "./api-client";
 import type { MessageType } from "@/shared/types";
 import { DEFAULT_SETTINGS } from "@/shared/types";
@@ -244,6 +245,7 @@ async function handleMessage(message: MessageType): Promise<MessageType> {
         type: "search_result",
         results: result.results,
         query: result.query,
+        count: result.count,
       };
     }
 
@@ -318,7 +320,7 @@ async function handleMessage(message: MessageType): Promise<MessageType> {
         return { type: "connection_result", success: connected };
       } catch (err) {
         updateBadge(false);
-        const code = (err as any)?.code || undefined;
+        const code = err instanceof APIError ? err.code : undefined;
         return {
           type: "connection_result",
           success: false,

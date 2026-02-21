@@ -61,3 +61,13 @@ export function extractTextContent(el: HTMLElement): string {
     .forEach((n) => n.remove());
   return (clone.textContent || "").trim().replace(/\n{3,}/g, "\n\n");
 }
+
+/** Sort nodes by DOM order using compareDocumentPosition */
+export function sortByDomOrder(nodes: HTMLElement[]): HTMLElement[] {
+  return nodes.sort((a, b) => {
+    const pos = a.compareDocumentPosition(b);
+    if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+    if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+    return 0;
+  });
+}

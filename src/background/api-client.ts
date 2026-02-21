@@ -5,6 +5,7 @@
  * Mirrors the pattern from packages/app/src/app/lib/api.ts.
  */
 
+import { ErrorCode } from "@/shared/types";
 import type {
   Entry,
   SearchResult,
@@ -36,12 +37,60 @@ export function clearSettingsCache(): void {
   cachedSettings = null;
 }
 
+export class APIError extends Error {
+  readonly status: number;
+  readonly code?: ErrorCode;
+  constructor(message: string, status: number, code?: ErrorCode) {
+    super(message);
+    this.name = "APIError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+interface RateLimitState {
+  remaining: number;
+  resetAt: number;
+}
+let cachedRateLimit: RateLimitState | null = null;
+
+function updateRateLimitCache(
+  remaining: string | null,
+  reset: string | null,
+): void {
+  if (remaining === null && reset === null) return;
+  const r =
+    remaining !== null
+      ? Number(remaining)
+      : (cachedRateLimit?.remaining ?? Infinity);
+  const t = reset !== null ? Number(reset) : (cachedRateLimit?.resetAt ?? 0);
+  if (Number.isFinite(r) && Number.isFinite(t))
+    cachedRateLimit = { remaining: r, resetAt: t };
+  const toStore: Record<string, string> = {};
+  if (remaining !== null) toStore.rateLimitRemaining = remaining;
+  if (reset !== null) toStore.rateLimitReset = reset;
+  if (Object.keys(toStore).length > 0) chrome.storage.local.set(toStore);
+}
+
+export function clearRateLimitCache(): void {
+  cachedRateLimit = null;
+}
+
 const RETRY_BACKOFF_MS = [1000, 3000];
 const FETCH_TIMEOUT_MS = 15_000;
 const NO_RETRY_STATUSES = new Set([401, 429]);
 
+function statusToErrorCode(status: number): ErrorCode | undefined {
+  if (status === 401) return ErrorCode.UNAUTHORIZED;
+  if (status === 429) return ErrorCode.RATE_LIMITED;
+  if (status >= 500) return ErrorCode.SERVER_ERROR;
+  return undefined;
+}
+
 /** Detect network-level connection failures and rewrite to actionable messages */
-function friendlyError(err: unknown): Error {
+function friendlyError(err: unknown): APIError | Error {
+  if (err instanceof APIError) return err; // pass through typed errors unchanged
+
   const msg = err instanceof Error ? err.message : String(err);
 
   // Browser fetch throws TypeError on network-level failures (refused, DNS, etc.)
@@ -50,12 +99,15 @@ function friendlyError(err: unknown): Error {
     msg === "Failed to fetch" ||
     /ECONNREFUSED|ECONNRESET|ENOTFOUND/i.test(msg);
 
-  if (isNetworkError) {
-    return new Error(
+  if (isNetworkError)
+    return new APIError(
       "Could not reach the server. Check your connection and server URL.",
+      0,
+      ErrorCode.NETWORK_ERROR,
     );
-  }
-
+  if (/timed out/i.test(msg)) return new APIError(msg, 0, ErrorCode.TIMEOUT);
+  if (/not configured/i.test(msg))
+    return new APIError(msg, 0, ErrorCode.NOT_CONFIGURED);
   return err instanceof Error ? err : new Error(msg);
 }
 
@@ -86,9 +138,32 @@ async function apiFetch<T>(
   const { serverUrl, apiKey } = await getSettings();
 
   if (!serverUrl)
-    throw new Error("Not configured — set server URL in extension settings");
+    throw new APIError(
+      "Not configured — set server URL in extension settings",
+      0,
+      ErrorCode.NOT_CONFIGURED,
+    );
   if (!apiKey)
-    throw new Error("Not configured — set API key in extension settings");
+    throw new APIError(
+      "Not configured — set API key in extension settings",
+      0,
+      ErrorCode.NOT_CONFIGURED,
+    );
+
+  if (
+    cachedRateLimit !== null &&
+    cachedRateLimit.remaining <= 0 &&
+    Date.now() / 1000 < cachedRateLimit.resetAt
+  ) {
+    const resetTime = new Date(
+      cachedRateLimit.resetAt * 1000,
+    ).toLocaleTimeString();
+    throw new APIError(
+      `Rate limit exhausted. Resets at ${resetTime}.`,
+      429,
+      ErrorCode.RATE_LIMITED,
+    );
+  }
 
   const url = `${serverUrl.replace(/\/$/, "")}${path}`;
   const headers: Record<string, string> = {
@@ -123,8 +198,11 @@ async function apiFetch<T>(
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: res.statusText }));
-        const err = new Error(body.error || `API error: ${res.status}`);
-        (err as any).status = res.status;
+        const err = new APIError(
+          body.error || `API error: ${res.status}`,
+          res.status,
+          statusToErrorCode(res.status),
+        );
 
         // Don't retry auth errors or rate limits
         if (NO_RETRY_STATUSES.has(res.status)) throw err;
@@ -138,14 +216,10 @@ async function apiFetch<T>(
       }
 
       // Store rate limit headers for UI consumption
-      const remaining = res.headers.get("X-RateLimit-Remaining");
-      const reset = res.headers.get("X-RateLimit-Reset");
-      if (remaining !== null || reset !== null) {
-        const rateLimitData: Record<string, string> = {};
-        if (remaining !== null) rateLimitData.rateLimitRemaining = remaining;
-        if (reset !== null) rateLimitData.rateLimitReset = reset;
-        chrome.storage.local.set(rateLimitData);
-      }
+      updateRateLimitCache(
+        res.headers.get("X-RateLimit-Remaining"),
+        res.headers.get("X-RateLimit-Reset"),
+      );
 
       return res.json();
     } catch (err) {
@@ -159,7 +233,7 @@ async function apiFetch<T>(
       }
 
       // Non-retryable errors (including 401/429 rethrown above)
-      if ((err as any).status && NO_RETRY_STATUSES.has((err as any).status))
+      if (err instanceof APIError && NO_RETRY_STATUSES.has(err.status))
         throw err;
 
       lastError = err instanceof Error ? err : new Error(String(err));

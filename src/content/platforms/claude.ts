@@ -1,19 +1,13 @@
-import { injectContentEditable, extractTextContent } from "./types";
+import {
+  injectContentEditable,
+  extractTextContent,
+  sortByDomOrder,
+} from "./types";
 import type { PlatformAdapter } from "./types";
 import type { ChatMessage } from "@/shared/types";
 
 const log = (...args: unknown[]) =>
   console.debug("[context-vault:claude]", ...args);
-
-/** Sort nodes by DOM order using compareDocumentPosition */
-function sortByDomOrder(nodes: HTMLElement[]): HTMLElement[] {
-  return nodes.sort((a, b) => {
-    const pos = a.compareDocumentPosition(b);
-    if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
-    if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
-    return 0;
-  });
-}
 
 /** Extract messages from tagged user/assistant elements, sorted by DOM order */
 function extractTaggedMessages(

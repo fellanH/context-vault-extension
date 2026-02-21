@@ -1,4 +1,8 @@
-import { injectContentEditable, extractTextContent } from "./types";
+import {
+  injectContentEditable,
+  extractTextContent,
+  sortByDomOrder,
+} from "./types";
 import type { PlatformAdapter } from "./types";
 import type { ChatMessage } from "@/shared/types";
 
@@ -51,14 +55,11 @@ export const geminiAdapter: PlatformAdapter = {
           ...userQueries.map((el) => ({ el, role: "user" as const })),
           ...modelResponses.map((el) => ({ el, role: "assistant" as const })),
         ];
-        tagged.sort((a, b) => {
-          const pos = a.el.compareDocumentPosition(b.el);
-          if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
-          if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
-          return 0;
-        });
+        const sortedEls = sortByDomOrder(tagged.map((t) => t.el));
+        const roleMap = new Map(tagged.map((t) => [t.el, t.role]));
         const messages: ChatMessage[] = [];
-        for (const { el, role } of tagged) {
+        for (const el of sortedEls) {
+          const role = roleMap.get(el)!;
           const content = extractTextContent(el);
           if (content) {
             messages.push({

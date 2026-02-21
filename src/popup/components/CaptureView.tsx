@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Check, AlertCircle } from "lucide-react";
-import type { ChatMessage, MessageType } from "@/shared/types";
+import type {
+  ChatMessage,
+  MessageType,
+  ConnectionStatus,
+} from "@/shared/types";
 
 type CaptureState = "idle" | "loading" | "saving" | "done";
 
 interface Props {
-  connected: boolean;
-  serverOffline: boolean;
+  connectionStatus: ConnectionStatus;
 }
 
-export function CaptureView({ connected, serverOffline }: Props) {
+export function CaptureView({ connectionStatus }: Props) {
   const [state, setState] = useState<CaptureState>("idle");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [platform, setPlatform] = useState("");
@@ -131,7 +134,7 @@ export function CaptureView({ connected, serverOffline }: Props) {
   }
 
   // Not connected states
-  if (!connected || serverOffline) {
+  if (connectionStatus !== "connected") {
     return (
       <div className="p-4 text-sm text-muted-foreground">
         Connect your vault in Settings to capture messages.

@@ -5,7 +5,11 @@ import { ResultList } from "./ResultList";
 import { Settings } from "./Settings";
 import { CaptureView } from "./CaptureView";
 import { ErrorBoundary } from "./ErrorBoundary";
-import type { SearchResult, MessageType } from "@/shared/types";
+import type {
+  SearchResult,
+  MessageType,
+  ConnectionStatus,
+} from "@/shared/types";
 
 type View = "search" | "capture" | "settings";
 
@@ -29,8 +33,9 @@ export function App() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [serverOffline, setServerOffline] = useState(false);
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("unknown");
+  const [resultCount, setResultCount] = useState<number | null>(null);
   const [rateLimitRemaining, setRateLimitRemaining] = useState<number | null>(
     null,
   );
@@ -45,7 +50,7 @@ export function App() {
         }
         if (response?.type === "settings") {
           if (!response.connected) {
-            setConnected(false);
+            setConnectionStatus("unconfigured");
             setView("settings");
             return;
           }
@@ -55,8 +60,7 @@ export function App() {
             (health: MessageType) => {
               if (chrome.runtime.lastError) return;
               if (health?.type === "health_result") {
-                setConnected(health.reachable);
-                setServerOffline(!health.reachable);
+                setConnectionStatus(health.reachable ? "connected" : "offline");
               }
             },
           );
@@ -117,7 +121,8 @@ export function App() {
         setLoading(false);
         if (response?.type === "search_result") {
           setResults(response.results);
-          setServerOffline(false);
+          setConnectionStatus("connected");
+          setResultCount(response.count);
         } else if (response?.type === "error") {
           setError(response.message);
         }
@@ -139,7 +144,7 @@ export function App() {
   }
 
   const showRateLimitWarning =
-    connected &&
+    connectionStatus === "connected" &&
     rateLimitRemaining !== null &&
     Number.isFinite(rateLimitRemaining) &&
     rateLimitRemaining < 10;
@@ -152,7 +157,7 @@ export function App() {
           <div className="flex items-center gap-2">
             <span className="text-base font-semibold">Context Vault</span>
             <span
-              className={`w-2 h-2 rounded-full ${connected ? "bg-success" : "bg-destructive"}`}
+              className={`w-2 h-2 rounded-full ${connectionStatus === "connected" ? "bg-success" : "bg-destructive"}`}
             />
           </div>
         </div>
@@ -190,16 +195,17 @@ export function App() {
             <Settings
               onSaved={(nextConnected) => {
                 setView("search");
-                setConnected(nextConnected);
-                setServerOffline(!nextConnected);
+                setConnectionStatus(
+                  nextConnected ? "connected" : "unconfigured",
+                );
               }}
             />
           </ErrorBoundary>
         ) : view === "capture" ? (
           <ErrorBoundary label="Capture">
-            <CaptureView connected={connected} serverOffline={serverOffline} />
+            <CaptureView connectionStatus={connectionStatus} />
           </ErrorBoundary>
-        ) : serverOffline ? (
+        ) : connectionStatus === "offline" ? (
           <div className="p-4">
             <div className="border border-border rounded-xl p-4 bg-card">
               <div className="text-sm font-semibold mb-2">
@@ -220,8 +226,7 @@ export function App() {
                           health?.type === "health_result" &&
                           health.reachable
                         ) {
-                          setConnected(true);
-                          setServerOffline(false);
+                          setConnectionStatus("connected");
                         }
                       },
                     );
@@ -239,7 +244,8 @@ export function App() {
               </div>
             </div>
           </div>
-        ) : !connected ? (
+        ) : connectionStatus === "unconfigured" ||
+          connectionStatus === "unknown" ? (
           <div className="p-4">
             <div className="border border-border rounded-xl p-4 bg-card">
               <div className="text-sm font-semibold mb-2">
@@ -267,6 +273,7 @@ export function App() {
               results={results}
               query={query}
               onInject={handleInject}
+              count={resultCount}
             />
           </ErrorBoundary>
         )}

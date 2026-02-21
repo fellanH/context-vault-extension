@@ -49,10 +49,30 @@ export interface ChatMessage {
   platform: string;
 }
 
+export enum ErrorCode {
+  NOT_CONFIGURED = "not_configured",
+  UNAUTHORIZED = "unauthorized",
+  RATE_LIMITED = "rate_limited",
+  SERVER_ERROR = "server_error",
+  NETWORK_ERROR = "network_error",
+  TIMEOUT = "timeout",
+}
+
+export type ConnectionStatus =
+  | "unknown"
+  | "connected"
+  | "offline"
+  | "unconfigured";
+
 /** Messages between popup/content scripts and background service worker */
 export type MessageType =
   | { type: "search"; query: string; limit?: number }
-  | { type: "search_result"; results: SearchResult[]; query: string }
+  | {
+      type: "search_result";
+      results: SearchResult[];
+      query: string;
+      count: number;
+    }
   | { type: "inject_text"; text: string }
   | { type: "inject_result"; success: boolean }
   | { type: "get_messages" }
@@ -85,7 +105,7 @@ export type MessageType =
       type: "connection_result";
       success: boolean;
       error?: string;
-      code?: string;
+      code?: ErrorCode;
     }
   | { type: "check_health" }
   | { type: "health_result"; reachable: boolean }

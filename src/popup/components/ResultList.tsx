@@ -6,9 +6,10 @@ interface Props {
   results: SearchResult[];
   query: string;
   onInject: (text: string) => void;
+  count: number | null;
 }
 
-export function ResultList({ results, query, onInject }: Props) {
+export function ResultList({ results, query, onInject, count }: Props) {
   if (!query) {
     return (
       <div className="px-4 py-6 text-center text-sm text-muted-foreground">
@@ -29,6 +30,7 @@ export function ResultList({ results, query, onInject }: Props) {
     <div className="px-4 pb-4">
       <div className="text-xs text-muted-foreground mb-2">
         {results.length} result{results.length !== 1 ? "s" : ""}
+        {count !== null && count > results.length ? ` (${count} total)` : ""}
       </div>
       <div className="space-y-2">
         {results.map((result) => (
