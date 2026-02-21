@@ -120,7 +120,7 @@ export function Settings({ onSaved }: Props) {
         type="url"
         value={serverUrl}
         onChange={(e) => setServerUrl(e.target.value)}
-        placeholder="https://app.context-vault.com"
+        placeholder="https://api.context-vault.com"
         className="w-full px-3 py-2 text-sm bg-input-background border border-input rounded-lg text-foreground outline-none focus:ring-1 focus:ring-ring mb-3"
       />
 
@@ -132,8 +132,19 @@ export function Settings({ onSaved }: Props) {
         value={apiKey}
         onChange={(e) => setApiKey(e.target.value)}
         placeholder="cv_..."
-        className="w-full px-3 py-2 text-sm bg-input-background border border-input rounded-lg text-foreground outline-none focus:ring-1 focus:ring-ring mb-3"
+        className="w-full px-3 py-2 text-sm bg-input-background border border-input rounded-lg text-foreground outline-none focus:ring-1 focus:ring-ring mb-1"
       />
+      <p className="text-xs text-muted-foreground mb-3">
+        Get your API key at{" "}
+        <a
+          href="https://app.context-vault.com"
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-2 hover:text-foreground transition-colors"
+        >
+          app.context-vault.com
+        </a>
+      </p>
 
       <label className="block text-xs text-muted-foreground mb-1">
         Encryption Secret

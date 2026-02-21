@@ -80,18 +80,24 @@ export function ConnectStep({
   return (
     <div className="w-full max-w-[480px] px-8 py-12">
       <h2 className="text-2xl font-bold mb-2">Connect Your Vault</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        Enter your Context Vault server details to get started.
+      <p className="text-sm text-muted-foreground mb-2">
+        Sign up at{" "}
+        <a
+          href="https://app.context-vault.com"
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-2 hover:text-foreground transition-colors"
+        >
+          app.context-vault.com
+        </a>{" "}
+        to get your API key, then paste it below.
       </p>
-
-      <a
-        href="https://github.com/fellanH/context-vault/blob/main/docs/distribution/connect-in-2-minutes.md"
-        target="_blank"
-        rel="noreferrer"
-        className="inline-block mb-4 text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-      >
-        Open setup guide
-      </a>
+      <p className="text-xs text-muted-foreground mb-6">
+        Or connect via terminal:{" "}
+        <code className="bg-secondary px-1.5 py-0.5 rounded text-foreground">
+          npx context-vault connect --key cv_...
+        </code>
+      </p>
 
       <label className="block text-xs text-muted-foreground mb-1">
         Server URL
@@ -100,7 +106,7 @@ export function ConnectStep({
         type="url"
         value={serverUrl}
         onChange={(e) => onServerUrlChange(e.target.value)}
-        placeholder="https://app.context-vault.com"
+        placeholder="https://api.context-vault.com"
         className="w-full px-3.5 py-2.5 text-sm bg-input-background border border-input rounded-xl text-foreground outline-none focus:ring-1 focus:ring-ring mb-4"
       />
 

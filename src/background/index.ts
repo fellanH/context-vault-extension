@@ -60,7 +60,7 @@ function originPatternFromServerUrl(serverUrl: string): string {
     parsed = new URL(serverUrl.trim());
   } catch {
     throw new Error(
-      "Invalid server URL. Use a full URL like https://app.context-vault.com",
+      "Invalid server URL. Use a full URL like https://api.context-vault.com",
     );
   }
 

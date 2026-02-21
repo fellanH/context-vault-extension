@@ -1,12 +1,13 @@
 name: Publish Extension to Chrome Web Store
 
 on:
-  # Disabled auto-trigger until CWS secrets are configured in repo settings.
-  # Re-enable: push: { tags: ['v*'] }
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -34,6 +35,18 @@ jobs:
 
       - name: Package extension
         run: cd dist && zip -r ../extension.zip .
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          gh release create "$TAG" extension.zip \
+            --title "$TAG" \
+            --notes "Chrome Web Store release for $TAG." \
+            --verify-tag
 
       - name: Publish to Chrome Web Store
         run: node scripts/publish-extension.mjs extension.zip
