@@ -1,11 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Context Vault",
-  "version": "2.8.7",
+  "version": "2.8.8",
   "description": "Search your knowledge vault and inject context into ChatGPT, Claude, and Gemini. Save insights from any page.",
   "homepage_url": "https://github.com/fellanH/context-vault",
-  "permissions": ["storage", "activeTab", "contextMenus"],
-  "optional_host_permissions": ["https://*/*"],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "contextMenus"
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
+  ],
   "action": {
     "default_popup": "popup/index.html",
     "default_title": "Context Vault — Search & Inject",
@@ -28,7 +34,9 @@
         "https://gemini.google.com/*",
         "https://claude.ai/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
