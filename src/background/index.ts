@@ -6,6 +6,7 @@
 import {
   searchVault,
   createEntry,
+  ingestUrl,
   getVaultStatus,
   clearSettingsCache,
   probeServer,
@@ -14,6 +15,7 @@ import type { MessageType } from "@/shared/types";
 import { DEFAULT_SETTINGS } from "@/shared/types";
 
 const CONTEXT_MENU_PARENT_ID = "save-to-vault";
+const CONTEXT_MENU_INGEST_ID = "ingest-page";
 const CONTEXT_MENU_VARIANTS = [
   {
     id: "save-as-insight",
@@ -127,6 +129,12 @@ function setupContextMenus(): void {
         contexts: ["selection"],
       });
     }
+
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_INGEST_ID,
+      title: "Ingest Page into Context Vault",
+      contexts: ["page"],
+    });
   });
 }
 
@@ -143,6 +151,31 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  // ── Ingest page ──────────────────────────────────────────────────────────
+  if (info.menuItemId === CONTEXT_MENU_INGEST_ID) {
+    const pageUrl = tab?.url;
+    if (!pageUrl) return;
+    try {
+      const entry = await ingestUrl(pageUrl, { tags: ["captured", "page"] });
+      if (tab?.id) {
+        chrome.tabs.sendMessage(tab.id, {
+          type: "capture_result",
+          id: entry.id,
+        } satisfies MessageType);
+      }
+    } catch (err) {
+      console.error("[context-vault] Ingest failed:", err);
+      if (tab?.id) {
+        chrome.tabs.sendMessage(tab.id, {
+          type: "error",
+          message: err instanceof Error ? err.message : "Ingest failed",
+        } satisfies MessageType);
+      }
+    }
+    return;
+  }
+
+  // ── Save selected text ───────────────────────────────────────────────────
   const selected = info.selectionText?.trim();
   if (!selected) return;
 

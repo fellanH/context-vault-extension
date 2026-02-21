@@ -5,7 +5,12 @@
  * Mirrors the pattern from packages/app/src/app/lib/api.ts.
  */
 
-import type { Entry, SearchResult, ExtensionSettings } from "@/shared/types";
+import type {
+  Entry,
+  SearchResult,
+  ExtensionSettings,
+  VaultStatus,
+} from "@/shared/types";
 
 // Intentionally volatile — resets when the service worker is terminated.
 // On restart, getSettings() falls back to chrome.storage.local automatically.
@@ -187,6 +192,7 @@ export async function createEntry(data: {
   tags?: string[];
   source?: string;
   identity_key?: string;
+  folder?: string;
 }): Promise<Entry> {
   return apiFetch("/api/vault/entries", {
     method: "POST",
@@ -197,10 +203,18 @@ export async function createEntry(data: {
   });
 }
 
+/** Fetch a URL and save it as a vault entry */
+export async function ingestUrl(
+  url: string,
+  opts: { kind?: string; tags?: string[] } = {},
+): Promise<Entry> {
+  return apiFetch("/api/vault/ingest", {
+    method: "POST",
+    body: JSON.stringify({ url, ...opts }),
+  });
+}
+
 /** Get vault status (doubles as connection test) */
-export async function getVaultStatus(): Promise<{
-  health: string;
-  entries: { total: number };
-}> {
+export async function getVaultStatus(): Promise<VaultStatus> {
   return apiFetch("/api/vault/status");
 }

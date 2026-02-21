@@ -11,10 +11,34 @@ export interface Entry {
   identity_key: string | null;
   expires_at: string | null;
   created_at: string;
+  team_id: string | null;
 }
 
 export interface SearchResult extends Entry {
   score: number;
+}
+
+/** Response shape from GET /api/vault/status */
+export interface VaultStatus {
+  health: "ok" | "degraded";
+  entries: {
+    total: number;
+    by_kind: Record<string, number>;
+    by_category: Record<string, number>;
+  };
+  database: {
+    size: string;
+    size_bytes: number;
+    stale_paths: number;
+    expired: number;
+  };
+  embeddings: {
+    indexed: number;
+    total: number;
+    missing: number;
+  } | null;
+  embed_model_available: boolean | null;
+  errors: string[];
 }
 
 /** A single chat message extracted from an AI conversation */
