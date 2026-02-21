@@ -10,7 +10,7 @@ import {
   clearSettingsCache,
   probeServer,
 } from "./api-client";
-import type { MessageType, VaultMode } from "@/shared/types";
+import type { MessageType } from "@/shared/types";
 import { DEFAULT_SETTINGS } from "@/shared/types";
 
 const CONTEXT_MENU_PARENT_ID = "save-to-vault";
@@ -105,13 +105,7 @@ async function ensureServerPermission(serverUrl: string): Promise<string> {
 
 // ─── Connection Logic ────────────────────────────────────────────────────────
 
-function isConnected(
-  mode: VaultMode,
-  serverUrl: string,
-  apiKey: string,
-  vaultPath?: string,
-): boolean {
-  if (mode === "local") return Boolean(vaultPath);
+function isConnected(serverUrl: string, apiKey: string): boolean {
   return Boolean(serverUrl && apiKey);
 }
 
@@ -139,20 +133,9 @@ function setupContextMenus(): void {
 chrome.runtime.onInstalled.addListener((details) => {
   setupContextMenus();
 
-  chrome.storage.local.get(
-    ["apiKey", "mode", "serverUrl", "vaultPath"],
-    (stored) => {
-      const mode: VaultMode = stored.mode || DEFAULT_SETTINGS.mode;
-      updateBadge(
-        isConnected(
-          mode,
-          stored.serverUrl || "",
-          stored.apiKey || "",
-          stored.vaultPath || "",
-        ),
-      );
-    },
-  );
+  chrome.storage.local.get(["apiKey", "serverUrl"], (stored) => {
+    updateBadge(isConnected(stored.serverUrl || "", stored.apiKey || ""));
+  });
 
   if (details.reason === "install") {
     chrome.tabs.create({ url: chrome.runtime.getURL("onboarding/index.html") });
@@ -246,56 +229,49 @@ async function handleMessage(message: MessageType): Promise<MessageType> {
       const stored = await chrome.storage.local.get([
         "serverUrl",
         "apiKey",
-        "mode",
-        "vaultPath",
+        "encryptionSecret",
       ]);
-      const mode: VaultMode = stored.mode || DEFAULT_SETTINGS.mode;
       const serverUrl = stored.serverUrl || DEFAULT_SETTINGS.serverUrl;
       const apiKey = stored.apiKey || "";
-      const vaultPath = stored.vaultPath || "";
+      const encryptionSecret = stored.encryptionSecret || "";
       return {
         type: "settings",
         serverUrl,
         apiKey,
-        mode,
-        vaultPath,
-        connected: isConnected(mode, serverUrl, apiKey, vaultPath),
+        encryptionSecret,
+        connected: isConnected(serverUrl, apiKey),
       };
     }
 
     case "save_settings": {
       const serverUrl = message.serverUrl.trim().replace(/\/$/, "");
       const apiKey = message.apiKey.trim();
-      const mode: VaultMode = message.mode;
-      const vaultPath = message.vaultPath?.trim() || "";
+      const encryptionSecret = message.encryptionSecret?.trim() || "";
 
-      if (mode === "hosted") {
-        if (!serverUrl) {
-          return { type: "error", message: "Server URL is required" };
-        }
-        try {
-          await ensureServerPermission(serverUrl);
-        } catch (err) {
-          return {
-            type: "error",
-            message:
-              err instanceof Error ? err.message : "Permission request failed",
-          };
-        }
+      if (!serverUrl) {
+        return { type: "error", message: "Server URL is required" };
+      }
+      try {
+        await ensureServerPermission(serverUrl);
+      } catch (err) {
+        return {
+          type: "error",
+          message:
+            err instanceof Error ? err.message : "Permission request failed",
+        };
       }
 
-      await chrome.storage.local.set({ serverUrl, apiKey, mode, vaultPath });
+      await chrome.storage.local.set({ serverUrl, apiKey, encryptionSecret });
       clearSettingsCache();
 
-      const connected = isConnected(mode, serverUrl, apiKey, vaultPath);
+      const connected = isConnected(serverUrl, apiKey);
       updateBadge(connected);
 
       return {
         type: "settings",
         serverUrl,
         apiKey,
-        mode,
-        vaultPath,
+        encryptionSecret,
         connected,
       };
     }
@@ -320,16 +296,9 @@ async function handleMessage(message: MessageType): Promise<MessageType> {
     }
 
     case "check_health": {
-      const stored = await chrome.storage.local.get([
-        "mode",
-        "serverUrl",
-        "apiKey",
-        "vaultPath",
-      ]);
-      const mode: VaultMode = stored.mode || DEFAULT_SETTINGS.mode;
       const reachable = await probeServer(3000);
       updateBadge(reachable);
-      return { type: "health_result", reachable, mode };
+      return { type: "health_result", reachable };
     }
 
     default:

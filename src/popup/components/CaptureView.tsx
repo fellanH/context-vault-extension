@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Check, AlertCircle } from "lucide-react";
-import type { ChatMessage, MessageType, VaultMode } from "@/shared/types";
+import type { ChatMessage, MessageType } from "@/shared/types";
 
 type CaptureState = "idle" | "loading" | "saving" | "done";
 
 interface Props {
   connected: boolean;
   serverOffline: boolean;
-  mode: VaultMode;
 }
 
 export function CaptureView({ connected, serverOffline }: Props) {

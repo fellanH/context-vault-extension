@@ -5,7 +5,7 @@ import { ResultList } from "./ResultList";
 import { Settings } from "./Settings";
 import { CaptureView } from "./CaptureView";
 import { ErrorBoundary } from "./ErrorBoundary";
-import type { SearchResult, MessageType, VaultMode } from "@/shared/types";
+import type { SearchResult, MessageType } from "@/shared/types";
 
 type View = "search" | "capture" | "settings";
 
@@ -31,7 +31,6 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [serverOffline, setServerOffline] = useState(false);
-  const [mode, setMode] = useState<VaultMode>("hosted");
   const [rateLimitRemaining, setRateLimitRemaining] = useState<number | null>(
     null,
   );
@@ -45,7 +44,6 @@ export function App() {
           return;
         }
         if (response?.type === "settings") {
-          setMode(response.mode);
           if (!response.connected) {
             setConnected(false);
             setView("settings");
@@ -59,7 +57,6 @@ export function App() {
               if (health?.type === "health_result") {
                 setConnected(health.reachable);
                 setServerOffline(!health.reachable);
-                setMode(health.mode);
               }
             },
           );
@@ -122,13 +119,7 @@ export function App() {
           setResults(response.results);
           setServerOffline(false);
         } else if (response?.type === "error") {
-          // Detect server-offline errors and show the banner instead of inline error
-          if (response.message.includes("Local server is not running")) {
-            setServerOffline(true);
-            setConnected(false);
-          } else {
-            setError(response.message);
-          }
+          setError(response.message);
         }
       },
     );
@@ -206,35 +197,17 @@ export function App() {
           </ErrorBoundary>
         ) : view === "capture" ? (
           <ErrorBoundary label="Capture">
-            <CaptureView
-              connected={connected}
-              serverOffline={serverOffline}
-              mode={mode}
-            />
+            <CaptureView connected={connected} serverOffline={serverOffline} />
           </ErrorBoundary>
         ) : serverOffline ? (
           <div className="p-4">
             <div className="border border-border rounded-xl p-4 bg-card">
               <div className="text-sm font-semibold mb-2">
-                {mode === "local"
-                  ? "Local Server Not Running"
-                  : "Server Unreachable"}
+                Server Unreachable
               </div>
               <div className="text-sm text-muted-foreground mb-3 leading-snug">
-                {mode === "local" ? (
-                  <>
-                    The extension needs the local server to search your vault.
-                    Start it by running:
-                    <code className="block mt-2 mb-2 px-3 py-2 bg-secondary rounded-lg text-xs text-foreground font-mono">
-                      context-vault ui
-                    </code>
-                    This starts the server at{" "}
-                    <span className="text-foreground">localhost:3141</span> and
-                    opens the dashboard.
-                  </>
-                ) : (
-                  "Could not reach the vault server. Check your connection and server URL in Settings."
-                )}
+                Could not reach the vault server. Check your connection and
+                server URL in Settings.
               </div>
               <div className="flex gap-2">
                 <button

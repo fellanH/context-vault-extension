@@ -16,14 +16,11 @@ async function getSettings(): Promise<ExtensionSettings> {
   const result = await chrome.storage.local.get([
     "serverUrl",
     "apiKey",
-    "mode",
     "encryptionSecret",
   ]);
   cachedSettings = {
     serverUrl: result.serverUrl || "",
     apiKey: result.apiKey || "",
-    mode: result.mode || "hosted",
-    vaultPath: result.vaultPath || "",
     encryptionSecret: result.encryptionSecret || "",
   };
   return cachedSettings;
@@ -39,7 +36,7 @@ const FETCH_TIMEOUT_MS = 15_000;
 const NO_RETRY_STATUSES = new Set([401, 429]);
 
 /** Detect network-level connection failures and rewrite to actionable messages */
-function friendlyError(err: unknown, mode: string): Error {
+function friendlyError(err: unknown): Error {
   const msg = err instanceof Error ? err.message : String(err);
 
   // Browser fetch throws TypeError on network-level failures (refused, DNS, etc.)
@@ -47,14 +44,6 @@ function friendlyError(err: unknown, mode: string): Error {
     (err instanceof TypeError && /fetch|network/i.test(msg)) ||
     msg === "Failed to fetch" ||
     /ECONNREFUSED|ECONNRESET|ENOTFOUND/i.test(msg);
-
-  if (isNetworkError && mode === "local") {
-    const friendly = new Error(
-      "Local server is not running. Start it with: context-vault ui",
-    );
-    (friendly as any).code = "SERVER_NOT_RUNNING";
-    return friendly;
-  }
 
   if (isNetworkError) {
     return new Error(
@@ -89,11 +78,11 @@ async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const { serverUrl, apiKey, mode } = await getSettings();
+  const { serverUrl, apiKey } = await getSettings();
 
   if (!serverUrl)
     throw new Error("Not configured — set server URL in extension settings");
-  if (mode === "hosted" && !apiKey)
+  if (!apiKey)
     throw new Error("Not configured — set API key in extension settings");
 
   const url = `${serverUrl.replace(/\/$/, "")}${path}`;
@@ -168,15 +157,6 @@ async function apiFetch<T>(
       if ((err as any).status && NO_RETRY_STATUSES.has((err as any).status))
         throw err;
 
-      // Don't retry connection-refused in local mode — server clearly isn't running
-      const errMsg = err instanceof Error ? err.message : String(err);
-      if (
-        mode === "local" &&
-        (err instanceof TypeError || errMsg === "Failed to fetch")
-      ) {
-        throw friendlyError(err, mode);
-      }
-
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < RETRY_BACKOFF_MS.length) {
         await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt]));
@@ -185,9 +165,7 @@ async function apiFetch<T>(
     }
   }
 
-  throw (
-    friendlyError(lastError, mode) || new Error("apiFetch failed after retries")
-  );
+  throw friendlyError(lastError) || new Error("apiFetch failed after retries");
 }
 
 /** Search the vault with hybrid semantic + full-text search */

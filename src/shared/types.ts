@@ -25,9 +25,6 @@ export interface ChatMessage {
   platform: string;
 }
 
-/** Vault connection mode */
-export type VaultMode = "local" | "hosted";
-
 /** Messages between popup/content scripts and background service worker */
 export type MessageType =
   | { type: "search"; query: string; limit?: number }
@@ -51,15 +48,13 @@ export type MessageType =
       serverUrl: string;
       apiKey: string;
       connected: boolean;
-      mode: VaultMode;
-      vaultPath: string;
+      encryptionSecret?: string;
     }
   | {
       type: "save_settings";
       serverUrl: string;
       apiKey: string;
-      mode: VaultMode;
-      vaultPath: string;
+      encryptionSecret?: string;
     }
   | { type: "test_connection" }
   | {
@@ -69,15 +64,13 @@ export type MessageType =
       code?: string;
     }
   | { type: "check_health" }
-  | { type: "health_result"; reachable: boolean; mode: VaultMode }
+  | { type: "health_result"; reachable: boolean }
   | { type: "error"; message: string };
 
 /** Extension storage shape */
 export interface ExtensionSettings {
   serverUrl: string;
   apiKey: string;
-  mode: VaultMode;
-  vaultPath: string;
   encryptionSecret?: string;
 }
 
@@ -85,13 +78,4 @@ export interface ExtensionSettings {
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   serverUrl: "https://api.context-vault.com",
   apiKey: "",
-  mode: "hosted",
-  vaultPath: "",
 };
-
-/** Defaults when switching to local mode */
-export const LOCAL_DEFAULTS = {
-  serverUrl: "http://localhost:3141",
-  apiKey: "",
-  vaultPath: "~/.context-vault/entries",
-} as const;
