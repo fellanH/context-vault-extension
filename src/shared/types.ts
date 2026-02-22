@@ -93,6 +93,7 @@ export type MessageType =
       apiKey: string;
       connected: boolean;
       encryptionSecret?: string;
+      userProfile?: UserProfile;
     }
   | {
       type: "save_settings";
@@ -109,6 +110,9 @@ export type MessageType =
     }
   | { type: "check_health" }
   | { type: "health_result"; reachable: boolean }
+  | { type: "google_auth_start" }
+  | { type: "sign_out" }
+  | { type: "sign_out_result"; success: boolean }
   | { type: "error"; message: string };
 
 /** Extension storage shape */
@@ -116,6 +120,14 @@ export interface ExtensionSettings {
   serverUrl: string;
   apiKey: string;
   encryptionSecret?: string;
+  userProfile?: UserProfile;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url?: string;
 }
 
 /** Default settings */

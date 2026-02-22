@@ -11,6 +11,7 @@ import type {
   SearchResult,
   ExtensionSettings,
   VaultStatus,
+  UserProfile,
 } from "@/shared/types";
 
 // Intentionally volatile — resets when the service worker is terminated.
@@ -291,4 +292,32 @@ export async function ingestUrl(
 /** Get vault status (doubles as connection test) */
 export async function getVaultStatus(): Promise<VaultStatus> {
   return apiFetch("/api/vault/status");
+}
+
+/**
+ * Fetch the authenticated user's profile from GET /api/auth/me.
+ * Called with explicit credentials right after OAuth so we don't depend on cache.
+ * Returns null on any error so the extension still connects.
+ */
+export async function getUserProfile(
+  serverUrl: string,
+  apiKey: string,
+): Promise<UserProfile | null> {
+  try {
+    const url = `${serverUrl.replace(/\/$/, "")}/api/auth/me`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
 }

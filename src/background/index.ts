@@ -8,10 +8,12 @@ import {
   createEntry,
   ingestUrl,
   getVaultStatus,
+  getUserProfile,
   clearSettingsCache,
   probeServer,
   APIError,
 } from "./api-client";
+import { startGoogleOAuth, handleOAuthTabUpdate } from "./oauth";
 import type { MessageType } from "@/shared/types";
 import { DEFAULT_SETTINGS } from "@/shared/types";
 
@@ -139,6 +141,10 @@ function setupContextMenus(): void {
   });
 }
 
+chrome.tabs.onUpdated.addListener((_tabId, changeInfo, _tab) => {
+  handleOAuthTabUpdate(_tabId, changeInfo);
+});
+
 chrome.runtime.onInstalled.addListener((details) => {
   setupContextMenus();
 
@@ -265,6 +271,7 @@ async function handleMessage(message: MessageType): Promise<MessageType> {
         "serverUrl",
         "apiKey",
         "encryptionSecret",
+        "userProfile",
       ]);
       const serverUrl = stored.serverUrl || DEFAULT_SETTINGS.serverUrl;
       const apiKey = stored.apiKey || "";
@@ -275,6 +282,7 @@ async function handleMessage(message: MessageType): Promise<MessageType> {
         apiKey,
         encryptionSecret,
         connected: isConnected(serverUrl, apiKey),
+        userProfile: stored.userProfile ?? undefined,
       };
     }
 
@@ -297,6 +305,8 @@ async function handleMessage(message: MessageType): Promise<MessageType> {
       }
 
       await chrome.storage.local.set({ serverUrl, apiKey, encryptionSecret });
+      // Switching to manual key — clear any OAuth profile
+      await chrome.storage.local.remove(["userProfile"]);
       clearSettingsCache();
 
       const connected = isConnected(serverUrl, apiKey);
@@ -334,6 +344,39 @@ async function handleMessage(message: MessageType): Promise<MessageType> {
       const reachable = await probeServer(3000);
       updateBadge(reachable);
       return { type: "health_result", reachable };
+    }
+
+    case "google_auth_start": {
+      const { apiKey, encryptionSecret } = await startGoogleOAuth();
+      const serverUrl = DEFAULT_SETTINGS.serverUrl;
+      const userProfile = await getUserProfile(serverUrl, apiKey);
+      await chrome.storage.local.set({
+        serverUrl,
+        apiKey,
+        encryptionSecret: encryptionSecret ?? "",
+        ...(userProfile ? { userProfile } : {}),
+      });
+      clearSettingsCache();
+      updateBadge(true);
+      return {
+        type: "settings",
+        serverUrl,
+        apiKey,
+        encryptionSecret: encryptionSecret ?? "",
+        connected: true,
+        userProfile: userProfile ?? undefined,
+      };
+    }
+
+    case "sign_out": {
+      await chrome.storage.local.remove([
+        "apiKey",
+        "encryptionSecret",
+        "userProfile",
+      ]);
+      clearSettingsCache();
+      updateBadge(false);
+      return { type: "sign_out_result", success: true };
     }
 
     default:
